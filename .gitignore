@@ -1,3 +1,6 @@
+.states
+*.db
+assets/external/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
