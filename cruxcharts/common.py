@@ -80,22 +80,11 @@ class Ascent(rx.Base):
             grade=row["Grade"],
             stars=row["Stars"],
             date=row["Date"],
-            style=cls.format_style(row["Style"]),
+            style=row["Style"],
             _type=row["Grade Type"],
             crag=row["Crag name"],
         )
 
-    @classmethod
-    def format_style(cls, style_str):
-        if "Solo" in style_str:
-            style = "Solo"
-        else:
-            style = style_str.split()[-1]
-            if style in ["Sent", '-', "rpt"]:
-                style = 'Redpoint'
-            if style == 'x':
-                style = "Redpoint"
-        return style
 
 
 class LogbookState(rx.State):
@@ -113,14 +102,26 @@ class LogbookState(rx.State):
     def create_figure(self):
         if self.logbook_df is not None:
             df = self.logbook_df.loc[self.visible_ascents]
+            grade_order = list(FONT2HUECO.keys())[::-1]
             self.figure = px.histogram(
                 df,
                 y="Grade",
                 color="Style",
+                category_orders={"Style": ASCENT2COLOR.keys(),
+                                 "Grade": grade_order},
+                color_discrete_map=ASCENT2COLOR,
                 width=600,
                 height=740,
             )
             self.figure.update_layout(yaxis_title=None, xaxis_title=None)
+            # TODO: add_annotations causes the plot to keep the y axis
+            # after changing climb type
+            #totals = df.groupby("Grade").apply(len)
+            #for (i, t) in enumerate(totals):
+            #    self.figure.add_annotation(y=i, x=t,
+            #                               text=str(t),
+            #                               showarrow=False,
+            #                               xshift=10)
 
     @rx.event
     async def handle_upload(self, upload_files: list[rx.UploadFile]):
@@ -137,6 +138,8 @@ class LogbookState(rx.State):
             all_stars.append(stars)
         df["Grade"] = all_grades
         df["Stars"] = all_stars
+        df["Style"] = df["Style"].apply(self.format_style)
+        df.loc[df[["Climb name", "Crag name"]].duplicated(), "Style"] = "Repeat"
         self.logbook_file = upload_files[0].name
         self.logbook_df = df
         self.get_ascents(df)
@@ -150,6 +153,18 @@ class LogbookState(rx.State):
         elif '*' not in splitted[-1]:
             return grade.strip(), 0
         return splitted[0].strip(), len(splitted[1])
+
+    @staticmethod
+    def format_style(style_str):
+        if "Solo" in style_str:
+            style = "Solo"
+        else:
+            style = style_str.split()[-1]
+            if style in ["Sent", '-', "rpt"]:
+                style = 'Redpoint'
+            if style == 'x':
+                style = "Redpoint"
+        return style
 
     @rx.event
     def get_ascents(self, logbook_df: pd.DataFrame):
@@ -166,6 +181,12 @@ class LogbookState(rx.State):
         self.visible_ascents = list(idxs)
         self.total_items = len(self.visible_ascents)
         self.create_figure()
+
+    @rx.event
+    def get_visible_logbook(self):
+        df = self.logbook_df.loc[self.visible_ascents]
+        print(df)
+        return df
 
     @rx.event
     def set_ascent_type(self, value: str):

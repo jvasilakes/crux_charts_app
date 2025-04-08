@@ -2,6 +2,7 @@ import reflex as rx
 
 from .common import LogbookState
 from .table import table_section
+from .plot import plot_section
 
 
 def help_dialog():
@@ -126,10 +127,7 @@ def index() -> rx.Component:
             ),
             rx.hstack(
                 table_section(),
-                rx.plotly(
-                    data=LogbookState.figure,
-                    on_mount=LogbookState.create_figure,
-                ),
+                plot_section(),
                 spacing="5",
             ),
             spacing="5",
