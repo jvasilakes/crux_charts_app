@@ -1,6 +1,6 @@
 import reflex as rx
 
-from .common import State
+from .common import LogbookState
 from .table import table_section
 
 
@@ -84,7 +84,7 @@ def upload_section():
                         rx.dialog.close(
                             rx.button(
                                 "Upload",
-                                on_click=State.handle_upload(
+                                on_click=LogbookState.handle_upload(
                                     rx.upload_files(upload_id="logbook_upload")
                                 ),
                             ),
@@ -102,22 +102,39 @@ def upload_section():
 
 def ascent_type_section():
     return rx.select(
-        ["Bouldering", "Trad", "Sport"],
-        value=State.ascent_type,
-        on_change=State.set_ascent_type
+        ["All", "Bouldering", "Trad", "Sport"],
+        value=LogbookState.ascent_type,
+        on_change=LogbookState.set_ascent_type
     )
 
 
-def index() -> rx.Component:
+def header():
     return rx.vstack(
-            rx.heading("CruxCharts", size="9"),
+        rx.heading("CruxCharts", size="9"),
+        rx.heading("Logbook analyzer", size="4"),
+        spacing="2"
+    )
+
+def index() -> rx.Component:
+    return (
+        rx.vstack(
+            header(),
             rx.hstack(
                 upload_section(),
                 ascent_type_section(),
-                spacing="3",
+                spacing="3"
             ),
-            table_section()
-           )
+            rx.hstack(
+                table_section(),
+                rx.plotly(
+                    data=LogbookState.figure,
+                    on_mount=LogbookState.create_figure,
+                ),
+                spacing="5",
+            ),
+            spacing="5",
+        )
+    )
 
 
 app = rx.App()
