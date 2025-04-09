@@ -103,7 +103,7 @@ def upload_section():
 
 def ascent_type_section():
     return rx.select(
-        ["All", "Bouldering", "Trad", "Sport"],
+        ["All", "Bouldering", "Sport", "Trad"],
         value=LogbookState.ascent_type,
         on_change=LogbookState.set_ascent_type
     )

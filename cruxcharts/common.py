@@ -6,62 +6,17 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-
-ASCENT2COLOR = {
-    "Solo": "#ffffb3",
-    "O/S": "#8dd3c7",
-    "β": "#80b1d3",
-    "Redpoint": "#fb8072",
-    "Repeat": "#b3b3b3"
-}
-
-
-DIFFICULTY2COLOR = {
-    'EASY': '#66c2a5',
-    'MODERATE': '#ff9933',
-    'HARD': '#b30000',
-    'VERYHARD': '#66ccff',
-    'ELITE': '#e6e6e6'}
-
-
-HUECO2FONT = {
-    "VB": ["f2", "f2+", "f3"],
-    "V0": ["f3+", "f4", "f4+"],
-    "V1": ["f5"],
-    "V2": ["f5+"],
-    "V3": ["f6A", "f6A+"],
-    "V4": ["f6B", "f6B+"],
-    "V5": ["f6C", "f6C+"],
-    "V6": ["f7A"],
-    "V7": ["f7A+"],
-    "V8": ["f7B", "f7B+"],
-    "V9": ["f7C"],
-    "V10": ["f7C+"],
-    "V11": ["f8A"]
-}
-
-
-GRADE2DIFFICULTY = {}
-for (i, (hueco, fonts)) in enumerate(HUECO2FONT.items()):
-    if i < 2:
-        diff = "EASY"
-    elif i < 4:
-        diff = "MODERATE"
-    elif i < 7:
-        diff = "HARD"
-    elif i < 11:
-        diff = "VERYHARD"
-    else:
-        diff = "ELITE"
-    GRADE2DIFFICULTY[hueco] = diff
-    for font in fonts:
-        GRADE2DIFFICULTY[font] = diff
-
-
-FONT2HUECO = {}
-for (hueco, fonts) in HUECO2FONT.items():
-    for f in fonts:
-        FONT2HUECO[f] = hueco
+from .utils import (
+    ASCENT2COLOR,
+    DIFFICULTY2COLOR,
+    GRADE2DIFFICULTY,
+    HUECO2FONT,
+    FONT2HUECO,
+    YDS2FRENCH,
+    FRENCH2YDS,
+    YDS2BRITISH,
+    BRITISH2YDS,
+)
 
 
 class Ascent(rx.Base):
@@ -102,26 +57,42 @@ class LogbookState(rx.State):
     def create_figure(self):
         if self.logbook_df is not None:
             df = self.logbook_df.loc[self.visible_ascents]
-            grade_order = list(FONT2HUECO.keys())[::-1]
+            grade_order = self.get_grade_order()
+            # TODO: missing entries for Trad which causes this to break.
+            climbed_grades = [g for g in grade_order if g in df["Grade"].values]
             self.figure = px.histogram(
                 df,
                 y="Grade",
                 color="Style",
                 category_orders={"Style": ASCENT2COLOR.keys(),
-                                 "Grade": grade_order},
+                                 "Grade": climbed_grades},
                 color_discrete_map=ASCENT2COLOR,
                 width=600,
                 height=740,
+                hover_data={"Style": True, "Grade": False},
             )
             self.figure.update_layout(yaxis_title=None, xaxis_title=None)
-            # TODO: add_annotations causes the plot to keep the y axis
-            # after changing climb type
-            #totals = df.groupby("Grade").apply(len)
-            #for (i, t) in enumerate(totals):
-            #    self.figure.add_annotation(y=i, x=t,
-            #                               text=str(t),
-            #                               showarrow=False,
-            #                               xshift=10)
+            totals = df.groupby("Grade").apply(len)
+            for (i, t) in enumerate(totals):
+                self.figure.add_annotation(y=i, x=t,
+                                           text=str(t),
+                                           showarrow=False,
+                                           xshift=10)
+
+    def get_grade_order(self):
+        boulder_order = list(FONT2HUECO.keys())[::-1]
+        sport_order = list(FRENCH2YDS.keys())[::-1]
+        trad_order = list(BRITISH2YDS.keys())[::-1]
+        if self.ascent_type == "Bouldering":
+            grade_order = boulder_order
+        elif self.ascent_type == "Sport":
+            grade_order = sport_order
+        elif self.ascent_type == "Trad":
+            grade_order = trad_order
+        else:
+            grade_order = boulder_order + sport_order + trad_order
+        return grade_order
+
 
     @rx.event
     async def handle_upload(self, upload_files: list[rx.UploadFile]):
